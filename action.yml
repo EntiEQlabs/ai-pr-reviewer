@@ -1,6 +1,6 @@
 name: 'AI PR Reviewer with SonarQube Standards'
 description: 'Automated AI Pull Request reviewer powered by Google Gemini and SonarQube clean code rules'
-author: 'Wiates Tech'
+author: 'EntiEQlabs'
 branding:
   icon: 'check-circle'
   color: 'blue'
@@ -14,9 +14,9 @@ inputs:
     required: false
     default: ${{ github.token }}
   gemini-model:
-    description: 'Gemini model to use'
+    description: 'Gemini model to use (gemini-2.5-flash, gemini-2.5-pro, gemini-2.0-flash)'
     required: false
-    default: 'gemini-3.6-flash'
+    default: 'gemini-2.5-flash'
   max-allowed-files:
     description: 'Maximum number of changed files allowed before requesting changes directly'
     required: false
