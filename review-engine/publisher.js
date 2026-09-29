@@ -6,6 +6,8 @@ import {
   filterNewFindings
 } from './fingerprint.js';
 
+const SUMMARY_TAG = '<!-- ai-pr-reviewer-summary -->';
+
 const SEVERITY_ICONS = {
   CRITICAL: '🚨 **CRITICAL**',
   HIGH: '⚠️ **HIGH**',
@@ -38,21 +40,28 @@ export function formatInlineComment(finding) {
 }
 
 /**
- * Formats the overall PR Summary Review body
+ * Formats the single dynamically updating PR Summary Dashboard
  */
-export function formatSummaryReview({ summary, findings, nonInlineFindings = [] }) {
+export function formatSummaryReview({ summary, headSha, activeFindingsCount, resolvedCount = 0, nonInlineFindings = [] }) {
   const badge = RISK_BADGES[summary.risk_level] || summary.risk_level;
+  const shortSha = headSha ? headSha.slice(0, 7) : 'latest';
 
-  let md = `## 🤖 Automated AI Code Review Summary\n\n`;
-  md += `### Overall Assessment: ${badge}\n\n`;
+  let md = `${SUMMARY_TAG}\n`;
+  md += `## 🤖 Automated AI Code Review Dashboard\n\n`;
+  md += `**Latest Analyzed Commit**: \`${shortSha}\` | **Status**: ${badge}\n\n`;
   md += `> ${summary.overview}\n\n`;
 
-  md += `| Severity | Count |\n`;
+  md += `### 📊 Findings Overview\n`;
+  md += `| Severity | Active Issues |\n`;
   md += `| :--- | :---: |\n`;
   md += `| 🚨 Critical | **${summary.critical_count}** |\n`;
   md += `| ⚠️ High | **${summary.high_count}** |\n`;
   md += `| 🟡 Medium | **${summary.medium_count}** |\n`;
   md += `| 🔵 Low | **${summary.low_count}** |\n\n`;
+
+  if (resolvedCount > 0) {
+    md += `> 🎉 **${resolvedCount}** previously flagged ${resolvedCount === 1 ? 'finding has' : 'findings have'} been **verified as resolved** in commit \`${shortSha}\`.\n\n`;
+  }
 
   if (nonInlineFindings.length > 0) {
     md += `### 📋 General & File-Level Findings\n\n`;
@@ -73,7 +82,93 @@ export function formatSummaryReview({ summary, findings, nonInlineFindings = [] 
 }
 
 /**
- * Publishes the review to the GitHub Pull Request
+ * Fetches all review threads from GitHub GraphQL API
+ */
+async function getReviewThreads(octokit, { owner, repo, prNumber }) {
+  try {
+    const response = await octokit.graphql(
+      `
+      query GetReviewThreads($owner: String!, $repo: String!, $prNumber: Int!) {
+        repository(owner: $owner, name: $repo) {
+          pullRequest(number: $prNumber) {
+            reviewThreads(first: 100) {
+              nodes {
+                id
+                isResolved
+                isOutdated
+                path
+                line
+                comments(first: 5) {
+                  nodes {
+                    id
+                    databaseId
+                    body
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    `,
+      { owner, repo, prNumber }
+    );
+    return response?.repository?.pullRequest?.reviewThreads?.nodes || [];
+  } catch (err) {
+    console.warn('Could not fetch review threads via GraphQL:', err.message);
+    return [];
+  }
+}
+
+/**
+ * Auto-resolves a review thread on GitHub and posts a resolution reply
+ */
+async function resolveReviewThread(octokit, { owner, repo, prNumber, thread, headSha }) {
+  const threadId = thread.id;
+  const firstComment = thread.comments?.nodes?.[0];
+  const databaseId = firstComment?.databaseId;
+  const shortSha = headSha ? headSha.slice(0, 7) : 'latest';
+
+  console.log(`Resolving review thread ${threadId} (issue fixed in commit ${shortSha})...`);
+
+  // 1. Post resolution reply comment if comment databaseId is available
+  if (databaseId) {
+    try {
+      await octokit.rest.pulls.createReplyForReviewComment({
+        owner,
+        repo,
+        pull_number: prNumber,
+        comment_id: databaseId,
+        body: `✅ **Resolved in \`${shortSha}\`**: This finding has been addressed and verified.`
+      });
+    } catch (err) {
+      console.warn(`Could not post resolution reply on comment ${databaseId}:`, err.message);
+    }
+  }
+
+  // 2. Mark thread as resolved in GitHub UI via GraphQL
+  try {
+    await octokit.graphql(
+      `
+      mutation ResolveThread($threadId: ID!) {
+        resolveReviewThread(input: { threadId: $threadId }) {
+          thread {
+            id
+            isResolved
+          }
+        }
+      }
+    `,
+      { threadId }
+    );
+    console.log(`✅ Successfully marked review thread ${threadId} as resolved in GitHub.`);
+  } catch (err) {
+    console.warn(`Could not resolve review thread ${threadId} via GraphQL:`, err.message);
+  }
+}
+
+/**
+ * Publishes the review, manages thread resolutions, and updates the single summary dashboard
  */
 export async function publishReview({
   context,
@@ -86,7 +181,7 @@ export async function publishReview({
 
   if (dryRun || !prMetadata.isPullRequest || !githubToken) {
     console.log('\n================ DRY RUN / LOCAL OUTPUT ================');
-    console.log(formatSummaryReview({ summary, findings }));
+    console.log(formatSummaryReview({ summary, headSha: prMetadata.headSha, activeFindingsCount: findings.length }));
     console.log('\n--- Inline Findings ---');
     for (const f of findings) {
       const findingWithFp = { ...f, fingerprint: generateFingerprint(f) };
@@ -100,29 +195,77 @@ export async function publishReview({
   const octokit = new Octokit({ auth: githubToken });
   const { owner, repo, prNumber, headSha } = prMetadata;
 
-  console.log(`Fetching existing comments for PR #${prNumber} to prevent duplicate reports...`);
+  console.log(`🔍 Inspecting PR #${prNumber} review threads and comments...`);
 
-  // 1. Fetch existing review comments on the PR for deduplication
+  // 1. Fetch existing review threads for auto-resolution and deduplication
+  const reviewThreads = await getReviewThreads(octokit, { owner, repo, prNumber });
+  
+  // Extract all comments from review threads + fallback to listReviewComments
   let existingComments = [];
-  try {
-    const commentsResponse = await octokit.rest.pulls.listReviewComments({
-      owner,
-      repo,
-      pull_number: prNumber,
-      per_page: 100
-    });
-    existingComments = commentsResponse.data;
-  } catch (err) {
-    console.warn('Could not fetch existing PR review comments:', err.message);
+  for (const thread of reviewThreads) {
+    for (const comment of thread.comments?.nodes || []) {
+      existingComments.push(comment);
+    }
   }
 
-  const existingFingerprints = extractExistingFingerprints(existingComments);
-  const processedFindings = filterNewFindings(findings, existingFingerprints);
+  if (existingComments.length === 0) {
+    try {
+      const commentsResponse = await octokit.rest.pulls.listReviewComments({
+        owner,
+        repo,
+        pull_number: prNumber,
+        per_page: 100
+      });
+      existingComments = commentsResponse.data;
+    } catch (err) {
+      console.warn('Could not fetch existing PR review comments:', err.message);
+    }
+  }
 
-  // Map files and their valid changed lines for inline commenting
+  const existingFingerprintsMap = extractExistingFingerprints(existingComments);
+  const processedFindings = filterNewFindings(findings, existingFingerprintsMap);
+
+  // Set of current active finding fingerprints
+  const currentFingerprintsSet = new Set(processedFindings.map((f) => f.fingerprint));
+
+  // 2. Auto-resolve review threads for issues that are now FIXED in this push
+  let resolvedCount = 0;
+  const regex = /<!-- ai-review-finding:([a-f0-9]{16}) -->/;
+
+  for (const thread of reviewThreads) {
+    if (thread.isResolved) continue; // Already resolved
+
+    const firstComment = thread.comments?.nodes?.[0];
+    const match = firstComment?.body?.match(regex);
+    if (match) {
+      const threadFingerprint = match[1];
+      // If the previously flagged finding is NOT in the current findings, it has been resolved!
+      if (!currentFingerprintsSet.has(threadFingerprint)) {
+        await resolveReviewThread(octokit, { owner, repo, prNumber, thread, headSha });
+        resolvedCount++;
+      }
+    }
+  }
+
+  // 3. Map changed lines to valid diff positions for new inline comments
   const validFileLinesMap = new Map();
   for (const file of files) {
     validFileLinesMap.set(file.newPath, new Set(file.changedLines));
+  }
+
+  function findClosestValidLine(validLinesSet, targetLine, maxDistance = 4) {
+    if (!validLinesSet || validLinesSet.size === 0) return null;
+    if (validLinesSet.has(targetLine)) return targetLine;
+    let closest = null;
+    let minDiff = Infinity;
+    for (const line of validLinesSet) {
+      const diff = Math.abs(line - targetLine);
+      if (diff <= maxDistance && diff < minDiff) {
+        minDiff = diff;
+        closest = line;
+      }
+    }
+    return closest;
   }
 
   const inlineCommentsToPost = [];
@@ -130,25 +273,69 @@ export async function publishReview({
 
   for (const finding of processedFindings) {
     const validLines = validFileLinesMap.get(finding.file);
+    const resolvedLine = validLines ? findClosestValidLine(validLines, finding.line, 5) : null;
 
-    // Only post as inline if it is a new finding AND the line is part of the diff
-    if (validLines && validLines.has(finding.line)) {
+    if (resolvedLine !== null) {
       if (finding.isNew) {
         inlineCommentsToPost.push({
           path: finding.file,
-          line: finding.line,
+          line: resolvedLine,
           side: 'RIGHT',
-          body: formatInlineComment(finding)
+          body: formatInlineComment({ ...finding, line: resolvedLine })
         });
       } else {
-        console.log(`Skipping duplicate finding on ${finding.file}:${finding.line} (already reported).`);
+        console.log(`Skipping already reported finding on ${finding.file}:${finding.line}.`);
       }
     } else {
       nonInlineFindings.push(finding);
     }
   }
 
-  // Determine review event: APPROVE, COMMENT, or REQUEST_CHANGES
+  // 4. Update the single dynamic PR Summary Dashboard Comment
+  const summaryBody = formatSummaryReview({
+    summary,
+    headSha,
+    activeFindingsCount: findings.length,
+    resolvedCount,
+    nonInlineFindings
+  });
+
+  try {
+    const issueComments = await octokit.rest.issues.listComments({
+      owner,
+      repo,
+      issue_number: prNumber,
+      per_page: 100
+    });
+
+    const existingSummary = issueComments.data.find(
+      (c) => c.body && c.body.includes(SUMMARY_TAG)
+    );
+
+    if (existingSummary) {
+      console.log(`Updating existing AI Review summary comment (ID: ${existingSummary.id})...`);
+      await octokit.rest.issues.updateComment({
+        owner,
+        repo,
+        comment_id: existingSummary.id,
+        body: summaryBody
+      });
+      console.log('✅ Updated existing PR Summary Dashboard comment.');
+    } else {
+      console.log('Creating initial AI Review summary comment...');
+      await octokit.rest.issues.createComment({
+        owner,
+        repo,
+        issue_number: prNumber,
+        body: summaryBody
+      });
+      console.log('✅ Created PR Summary Dashboard comment.');
+    }
+  } catch (err) {
+    console.warn('Could not update/create PR issue summary comment:', err.message);
+  }
+
+  // 5. Submit GitHub PR Review (Inline comments & review state)
   let reviewEvent = 'COMMENT';
   if (summary.recommendation === 'REQUEST_CHANGES' && (summary.critical_count > 0 || summary.high_count > 0)) {
     reviewEvent = 'REQUEST_CHANGES';
@@ -156,37 +343,38 @@ export async function publishReview({
     reviewEvent = 'APPROVE';
   }
 
-  const summaryBody = formatSummaryReview({
-    summary,
-    findings,
-    nonInlineFindings
-  });
-
-  console.log(`Submitting GitHub Pull Request Review for PR #${prNumber} (event: ${reviewEvent}, inline comments: ${inlineCommentsToPost.length})...`);
-
-  try {
-    await octokit.rest.pulls.createReview({
-      owner,
-      repo,
-      pull_number: prNumber,
-      commit_id: headSha,
-      event: reviewEvent,
-      body: summaryBody,
-      comments: inlineCommentsToPost
-    });
-    console.log('✅ AI Code Review submitted successfully to GitHub PR.');
-  } catch (err) {
-    console.error('Failed to submit review via createReview, falling back to PR issue comment:', err.message);
+  if (inlineCommentsToPost.length > 0) {
+    console.log(`Submitting GitHub Pull Request Review (event: ${reviewEvent}, new inline comments: ${inlineCommentsToPost.length})...`);
     try {
-      await octokit.rest.issues.createComment({
+      await octokit.rest.pulls.createReview({
         owner,
         repo,
-        issue_number: prNumber,
-        body: summaryBody
+        pull_number: prNumber,
+        commit_id: headSha,
+        event: reviewEvent,
+        body: `### 🤖 AI Code Review Findings on \`${headSha ? headSha.slice(0, 7) : 'commit'}\`\n\nIdentified **${inlineCommentsToPost.length}** new ${inlineCommentsToPost.length === 1 ? 'item' : 'items'} to address. See inline comments below.`,
+        comments: inlineCommentsToPost
       });
-      console.log('✅ Posted summary comment to PR.');
-    } catch (commentErr) {
-      console.error('Failed to post PR issue comment:', commentErr.message);
+      console.log('✅ AI Code Review inline comments submitted.');
+    } catch (err) {
+      console.error('Failed to submit inline review via createReview:', err.message);
     }
+  } else if (reviewEvent === 'APPROVE') {
+    console.log('All findings resolved or zero findings detected. Submitting APPROVAL review...');
+    try {
+      await octokit.rest.pulls.createReview({
+        owner,
+        repo,
+        pull_number: prNumber,
+        commit_id: headSha,
+        event: 'APPROVE',
+        body: `### 🤖 AI Code Review: ✅ Approved on \`${headSha ? headSha.slice(0, 7) : 'commit'}\`\n\nAll quality, security, and performance standards satisfied.`
+      });
+      console.log('✅ Approved PR Review submitted.');
+    } catch (err) {
+      console.warn('Could not submit approval review:', err.message);
+    }
+  } else {
+    console.log(`No new inline comments to post on commit \`${headSha ? headSha.slice(0, 7) : ''}\`. Summary dashboard updated.`);
   }
 }
