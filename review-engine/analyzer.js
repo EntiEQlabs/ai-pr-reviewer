@@ -308,15 +308,14 @@ export async function analyzePullRequest(context, apiKey) {
 
   console.log('Sending PR context to Google Gemini for reasoning and structured review...');
 
-  const primaryModel = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+  const primaryModel = process.env.GEMINI_MODEL || 'gemini-3.8-flash';
   const candidateModels = Array.from(
     new Set([
       primaryModel,
-      'gemini-2.5-flash',
-      'gemini-2.5-pro',
-      'gemini-2.0-flash',
-      'gemini-1.5-pro',
-      'gemini-1.5-flash'
+      'gemini-3.8-flash',
+      'gemini-3.1-pro-preview',
+      'gemini-3.1-pro',
+      'gemini-3-flash'
     ])
   );
 
