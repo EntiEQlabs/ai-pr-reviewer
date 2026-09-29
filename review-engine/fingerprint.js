@@ -18,16 +18,17 @@ export function getFingerprintTag(fingerprint) {
 
 /**
  * Extracts all finding fingerprints from existing PR comments
+ * Returns Map<fingerprint, commentObject>
  */
 export function extractExistingFingerprints(comments = []) {
-  const existing = new Set();
+  const existing = new Map();
   const regex = /<!-- ai-review-finding:([a-f0-9]{16}) -->/;
 
   for (const comment of comments) {
     const body = comment.body || '';
     const match = body.match(regex);
     if (match) {
-      existing.add(match[1]);
+      existing.set(match[1], comment);
     }
   }
 
@@ -35,12 +36,12 @@ export function extractExistingFingerprints(comments = []) {
 }
 
 /**
- * Filters findings to remove any that have already been commented on the PR
+ * Filters findings to identify which are new vs already reported
  */
-export function filterNewFindings(findings, existingFingerprints) {
+export function filterNewFindings(findings, existingFingerprintsMap) {
   return findings.map((finding) => {
     const fingerprint = generateFingerprint(finding);
-    const isNew = !existingFingerprints.has(fingerprint);
+    const isNew = !existingFingerprintsMap.has(fingerprint);
     return {
       ...finding,
       fingerprint,
