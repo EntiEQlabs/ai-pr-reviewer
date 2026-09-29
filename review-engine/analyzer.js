@@ -1,4 +1,4 @@
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenAI } from "@google/genai";
 
 const SYSTEM_INSTRUCTION = `
 You are an elite Principal Software Engineer, Lead Security Auditor & SonarQube Quality Profile Reviewer.
@@ -27,7 +27,7 @@ You must evaluate all code strictly against SonarQube Quality Gate standards, ba
 
 3. SONARQUBE VULNERABILITIES, SECURITY & INFORMATION DISCLOSURE:
    - Broken Object Level Authorization (BOLA / IDOR - OWASP API #1): Endpoints accessing or modifying resources by ID must verify tenant / user ownership. Flag missing authorization ownership checks (\`custom/bola-idor-authorization\`).
-   - Secret Leaks & Hardcoded Credentials: (reported in \`secret_leaks\` or found in diff): Any hardcoded API keys, private tokens, DB passwords, AWS secrets, or bearer tokens MUST be flagged as CRITICAL severity (\`sonarjs/no-hardcoded-credentials\`). Instruct developer to rotate/revoke secrets immediately. NEVER print plaintext secrets in comments.
+   - Secret Leaks & Hardcoded Credentials: Any hardcoded API keys, private tokens, DB passwords, AWS secrets, or bearer tokens MUST be flagged as CRITICAL severity (\`sonarjs/no-hardcoded-credentials\`). Instruct developer to rotate/revoke secrets immediately. NEVER print plaintext secrets in comments.
    - Information Exposure Through Error Messages (CWE-209 / OWASP A05:2021): Prohibit exposing raw error objects, technical exceptions, database stack traces, or internal server paths directly to end users in UI components (Flutter \`SnackBar\`, \`showDialog\`, \`showModalBottomSheet\`, \`Toast\`, React alerts/toasts) or in raw backend API 500 responses (e.g., \`e.toString()\`, \`ex.Message\`, \`DioException\`, \`FirebaseException\`, \`SqlException\`, \`StatusCode(500, ex.ToString())\`). Require mapped, user-friendly, localized error feedback (\`custom/no-raw-exception-in-ui\`, \`custom/safe-api-error-responses\`).
    - SQL Injection: Raw SQL string concatenation or unparameterized queries (\`sonarjs/sql-injection-risk\`, S2077, S3649).
    - Insecure Randomness: Using pseudorandom generators (\`Math.random()\`, \`Random()\`) for tokens, crypto, or session IDs instead of cryptographically secure RNGs (\`sonarjs/no-insecure-randomness\`, S2245).
@@ -67,89 +67,92 @@ You must evaluate all code strictly against SonarQube Quality Gate standards, ba
    - Semantic HTML & WCAG 2.1 AA: Interactive button/link semantics, missing \`aria-label\`, missing image \`alt\` descriptions.
 
 ### STRICT INSTRUCTIONS:
-- MANDATORY EXHAUSTIVE AUDIT: You must perform a complete, exhaustive line-by-line audit across EVERY single modified file. DO NOT stop after 3-4 findings or summarize issues. If there are 15-20 distinct issues or anti-patterns across the diff, you MUST return all findings in the \`findings\` array.
+- MANDATORY AUDIT: Evaluate modified files against the rules above. Return all issues in the \`findings\` array.
+- SHORT & CRISP COMMENTS: Keep each finding concise, clear, and easily understandable:
+  - \`title\`: Short, clear title under 8 words.
+  - \`description\`: 1 to 2 simple sentences explaining the problem directly without filler or jargon.
+  - \`recommendation\`: 1 to 2 simple sentences with a direct fix or concise code snippet.
 - RULE ID REQUIREMENT: For every finding, provide the precise \`rule_id\` matching the SonarQube rule (e.g. \`sonarjs/no-all-duplicated-branches\`), custom rule (e.g. \`custom/flutter-use-build-context-synchronously\`), or security rule (e.g. \`sonarjs/no-hardcoded-credentials\`).
 - LINE NUMBER ACCURACY: Anchor every finding strictly to one of the provided "Valid modified & diff line numbers". If an issue spans multiple lines, choose the exact line where the offending code or call occurs.
-- Be strict and uncompromising on code reliability, security, startup performance, error handling, accessibility, and design system token consistency.
-- Always provide exact file paths, valid diff line numbers, and actionable remediation code snippets.
+- FORMATTING: Output valid JSON. Do not include raw unescaped double quotes inside description or recommendation strings.
 `;
 
 const RESPONSE_SCHEMA = {
-  type: 'object',
+  type: "object",
   properties: {
     summary: {
-      type: 'object',
+      type: "object",
       properties: {
         risk_level: {
-          type: 'string',
-          enum: ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW']
+          type: "string",
+          enum: ["CRITICAL", "HIGH", "MEDIUM", "LOW"]
         },
         recommendation: {
-          type: 'string',
-          enum: ['APPROVE', 'COMMENT', 'REQUEST_CHANGES']
+          type: "string",
+          enum: ["APPROVE", "COMMENT", "REQUEST_CHANGES"]
         },
         overview: {
-          type: 'string',
-          description: 'A 2-3 sentence executive summary of the changes, architectural impact, and overall quality.'
+          type: "string",
+          description: "A 1-2 sentence high-level summary of PR quality and key risks."
         },
-        critical_count: { type: 'integer' },
-        high_count: { type: 'integer' },
-        medium_count: { type: 'integer' },
-        low_count: { type: 'integer' }
+        critical_count: { type: "integer" },
+        high_count: { type: "integer" },
+        medium_count: { type: "integer" },
+        low_count: { type: "integer" }
       },
       required: [
-        'risk_level',
-        'recommendation',
-        'overview',
-        'critical_count',
-        'high_count',
-        'medium_count',
-        'low_count'
+        "risk_level",
+        "recommendation",
+        "overview",
+        "critical_count",
+        "high_count",
+        "medium_count",
+        "low_count"
       ]
     },
     findings: {
-      type: 'array',
+      type: "array",
       items: {
-        type: 'object',
+        type: "object",
         properties: {
-          file: { type: 'string' },
-          line: { type: 'integer' },
+          file: { type: "string" },
+          line: { type: "integer" },
           rule_id: {
-            type: 'string',
-            description: 'Exact SonarQube or custom rule ID (e.g. sonarjs/no-all-duplicated-branches, custom/flutter-use-build-context-synchronously, sonarjs/no-hardcoded-credentials).'
+            type: "string",
+            description: "Exact SonarQube or custom rule ID."
           },
           severity: {
-            type: 'string',
-            enum: ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW']
+            type: "string",
+            enum: ["CRITICAL", "HIGH", "MEDIUM", "LOW"]
           },
           category: {
-            type: 'string',
-            enum: ['CORRECTNESS', 'SECURITY', 'PERFORMANCE', 'ARCHITECTURE', 'BUSINESS_LOGIC', 'EDGE_CASE']
+            type: "string",
+            enum: ["CORRECTNESS", "SECURITY", "PERFORMANCE", "ARCHITECTURE", "BUSINESS_LOGIC", "EDGE_CASE"]
           },
           issue_type: {
-            type: 'string',
-            enum: ['DEFINITE_ISSUE', 'POTENTIAL_BUSINESS_IMPACT']
+            type: "string",
+            enum: ["DEFINITE_ISSUE", "POTENTIAL_BUSINESS_IMPACT"]
           },
-          title: { type: 'string', description: 'Concise summary of the finding (under 10 words).' },
-          description: { type: 'string', description: 'Detailed explanation of why this is a problem and what failure mode occurs.' },
-          recommendation: { type: 'string', description: 'Concrete remediation steps, including code snippets where appropriate.' },
-          confidence: { type: 'number', description: 'Confidence score between 0.0 and 1.0.' }
+          title: { type: "string", description: "Short, clear title under 8 words." },
+          description: { type: "string", description: "1-2 simple sentences explaining the problem clearly." },
+          recommendation: { type: "string", description: "1-2 simple sentences or concise code snippet showing the direct fix." },
+          confidence: { type: "number", description: "Confidence score between 0.0 and 1.0." }
         },
         required: [
-          'file',
-          'line',
-          'severity',
-          'category',
-          'issue_type',
-          'title',
-          'description',
-          'recommendation',
-          'confidence'
+          "file",
+          "line",
+          "severity",
+          "category",
+          "issue_type",
+          "title",
+          "description",
+          "recommendation",
+          "confidence"
         ]
       }
     }
   },
-  required: ['summary', 'findings']
+  required: ["summary", "findings"]
 };
 
 function getFilePriority(filePath) {
@@ -163,35 +166,35 @@ function getFilePriority(filePath) {
 }
 
 function formatSonarRules(sonarRulesConfig) {
-  if (!sonarRulesConfig) return '';
+  if (!sonarRulesConfig) return "";
 
   let section = `## SonarQube Quality Profile & Active Rule Standards\n`;
   if (sonarRulesConfig.profile) {
-    section += `**Quality Profile**: ${sonarRulesConfig.profile.name || 'Enterprise Profile'} (Extends: \`${sonarRulesConfig.profile.extends || 'Sonar way'}\`)\n\n`;
+    section += `**Quality Profile**: ${sonarRulesConfig.profile.name || "Enterprise Profile"} (Extends: \`${sonarRulesConfig.profile.extends || "Sonar way"}\`)\n\n`;
   }
 
   if (sonarRulesConfig.baseRules && Object.keys(sonarRulesConfig.baseRules).length > 0) {
     section += `### 1. Base "Sonar way" Clean Code Rules:\n`;
     for (const [ruleId, info] of Object.entries(sonarRulesConfig.baseRules)) {
-      section += `- **\`${ruleId}\`** [Severity: ${info.severity || 'HIGH'}]: ${info.description}\n`;
+      section += `- **\`${ruleId}\`** [Severity: ${info.severity || "HIGH"}]: ${info.description}\n`;
     }
-    section += '\n';
+    section += "\n";
   }
 
   if (sonarRulesConfig.securityRules && Object.keys(sonarRulesConfig.securityRules).length > 0) {
     section += `### 2. SonarQube Security & OWASP Standards:\n`;
     for (const [ruleId, info] of Object.entries(sonarRulesConfig.securityRules)) {
-      section += `- **\`${ruleId}\`** [Severity: ${info.severity || 'CRITICAL'}]: ${info.description}\n`;
+      section += `- **\`${ruleId}\`** [Severity: ${info.severity || "CRITICAL"}]: ${info.description}\n`;
     }
-    section += '\n';
+    section += "\n";
   }
 
   if (Array.isArray(sonarRulesConfig.customRules) && sonarRulesConfig.customRules.length > 0) {
     section += `### 3. Custom Extra Rules Overlay (ENFORCE UNCOMPROMISINGLY):\n`;
     for (const rule of sonarRulesConfig.customRules) {
-      section += `- **\`${rule.id}\`** (${rule.name}) [Severity: ${rule.severity || 'HIGH'}]: ${rule.description} (Tags: ${(rule.tags || []).join(', ')})\n`;
+      section += `- **\`${rule.id}\`** (${rule.name}) [Severity: ${rule.severity || "HIGH"}]: ${rule.description} (Tags: ${(rule.tags || []).join(", ")})\n`;
     }
-    section += '\n';
+    section += "\n";
   }
 
   return section;
@@ -201,7 +204,7 @@ function buildPrompt(context) {
   const { prMetadata, files, projectDocs, staticAnalysisReports, sonarRulesConfig } = context;
 
   let prompt = `# Pull Request Review Context\n\n`;
-  prompt += `## PR Title: ${prMetadata.title || 'N/A'}\n`;
+  prompt += `## PR Title: ${prMetadata.title || "N/A"}\n`;
   prompt += `## Base Branch: ${prMetadata.baseRef} | Head Branch: ${prMetadata.headRef}\n`;
   if (prMetadata.body) {
     prompt += `## PR Description:\n${prMetadata.body}\n\n`;
@@ -236,17 +239,17 @@ function buildPrompt(context) {
       break;
     }
 
-    let patch = file.patch || '';
+    let patch = file.patch || "";
     if (patch.length > 20000) {
-      patch = patch.slice(0, 20000) + '\n... [diff truncated for size]';
+      patch = patch.slice(0, 20000) + "\n... [diff truncated for size]";
     }
 
     currentDiffLength += patch.length;
 
     const validLines = file.hunkLines && file.hunkLines.length > 0 ? file.hunkLines : file.changedLines;
 
-    prompt += `### File: ${file.newPath} (${file.isNew ? 'NEW' : file.isDeleted ? 'DELETED' : 'MODIFIED'})\n`;
-    prompt += `Valid modified & diff line numbers: [${validLines.slice(0, 100).join(', ')}${validLines.length > 100 ? '...' : ''}]\n`;
+    prompt += `### File: ${file.newPath} (${file.isNew ? "NEW" : file.isDeleted ? "DELETED" : "MODIFIED"})\n`;
+    prompt += `Valid modified & diff line numbers: [${validLines.slice(0, 100).join(", ")}${validLines.length > 100 ? "..." : ""}]\n`;
     prompt += `\`\`\`diff\n${patch}\n\`\`\`\n\n`;
   }
 
@@ -257,17 +260,123 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+/**
+ * Resiliently repairs and parses JSON output from Gemini
+ */
+export function repairAndParseJson(raw) {
+  if (!raw || typeof raw !== "string") return null;
+  let text = raw.trim();
+
+  // Strip markdown code fences if present
+  if (text.startsWith("```")) {
+    text = text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
+  }
+
+  // 1. Direct parse attempt
+  try {
+    return JSON.parse(text);
+  } catch (_) {}
+
+  // 2. Structural Repair for cut-off / truncated strings or objects
+  try {
+    let s = text;
+    let inString = false;
+    let escaped = false;
+    const stack = [];
+
+    for (let i = 0; i < s.length; i++) {
+      const c = s[i];
+      if (c === "\\" && inString) {
+        escaped = !escaped;
+        continue;
+      }
+      if (c === "\"" && !escaped) {
+        inString = !inString;
+      } else if (!inString) {
+        if (c === "{" || c === "[") {
+          stack.push(c);
+        } else if (c === "}" && stack[stack.length - 1] === "{") {
+          stack.pop();
+        } else if (c === "]" && stack[stack.length - 1] === "[") {
+          stack.pop();
+        }
+      }
+      escaped = false;
+    }
+
+    // Close unterminated string
+    if (inString) {
+      s += "\"";
+    }
+
+    // Clean trailing incomplete properties/commas
+    s = s.replace(/,\s*$/g, "");
+    s = s.replace(/,\s*"[^"]*":\s*$/g, "");
+
+    // Close remaining open brackets and braces in reverse order
+    while (stack.length > 0) {
+      const open = stack.pop();
+      if (open === "{") {
+        s += " }";
+      } else if (open === "[") {
+        s += " ]";
+      }
+    }
+
+    return JSON.parse(s);
+  } catch (repairErr) {
+    console.warn("Structural JSON repair attempt:", repairErr.message);
+  }
+
+  // 3. Fallback extraction using Regex for critical fields
+  try {
+    const summaryMatch = text.match(/"summary"\s*:\s*\{[\s\S]*?"low_count"\s*:\s*\d+\s*\}/);
+    let summaryObj = {
+      risk_level: "COMMENT",
+      recommendation: "COMMENT",
+      overview: "Automated AI Code Review completed.",
+      critical_count: 0,
+      high_count: 0,
+      medium_count: 0,
+      low_count: 0
+    };
+    if (summaryMatch) {
+      try {
+        summaryObj = JSON.parse(summaryMatch[0].replace(/^"summary"\s*:\s*/, ""));
+      } catch (_) {}
+    }
+
+    const findingMatches = text.matchAll(/\{\s*"file"\s*:\s*"([^"]+)"[\s\S]*?"recommendation"\s*:\s*"([^"]*)"/g);
+    const findingsList = [];
+    for (const match of findingMatches) {
+      try {
+        const parsedFinding = JSON.parse(match[0] + "}");
+        findingsList.push(parsedFinding);
+      } catch (_) {}
+    }
+
+    return {
+      summary: summaryObj,
+      findings: findingsList
+    };
+  } catch (regexErr) {
+    console.error("Regex extraction fallback failed:", regexErr.message);
+  }
+
+  return null;
+}
+
 async function callModelWithRetry(ai, modelName, prompt, maxRetries = 3) {
   let lastError;
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      console.log(`Calling model ${modelName} (attempt ${attempt}/${maxRetries})...`);
+      console.log("Calling model " + modelName + " (attempt " + attempt + "/" + maxRetries + ")...");
       const response = await ai.models.generateContent({
         model: modelName,
         contents: prompt,
         config: {
           systemInstruction: SYSTEM_INSTRUCTION,
-          responseMimeType: 'application/json',
+          responseMimeType: "application/json",
           responseSchema: RESPONSE_SCHEMA,
           temperature: 0.1,
           maxOutputTokens: 8192
@@ -281,14 +390,14 @@ async function callModelWithRetry(ai, modelName, prompt, maxRetries = 3) {
         status === 503 ||
         status === 429 ||
         status === 500 ||
-        err.message?.includes('high demand') ||
-        err.message?.includes('UNAVAILABLE') ||
-        err.message?.includes('RESOURCE_EXHAUSTED') ||
-        err.message?.includes('rate limit');
+        err.message?.includes("high demand") ||
+        err.message?.includes("UNAVAILABLE") ||
+        err.message?.includes("RESOURCE_EXHAUSTED") ||
+        err.message?.includes("rate limit");
 
       if (isTransient && attempt < maxRetries) {
         const delayMs = Math.min(attempt * 3000 + Math.random() * 1000, 15000);
-        console.warn(`⚠️ Model ${modelName} returned status ${status || 'TRANSIENT'}. Retrying in ${Math.round(delayMs)}ms...`);
+        console.warn("⚠️ Model " + modelName + " returned status " + (status || "TRANSIENT") + ". Retrying in " + Math.round(delayMs) + "ms...");
         await sleep(delayMs);
       } else {
         throw err;
@@ -300,22 +409,22 @@ async function callModelWithRetry(ai, modelName, prompt, maxRetries = 3) {
 
 export async function analyzePullRequest(context, apiKey) {
   if (!apiKey) {
-    throw new Error('GEMINI_API_KEY environment variable is missing.');
+    throw new Error("GEMINI_API_KEY environment variable is missing.");
   }
 
   const ai = new GoogleGenAI({ apiKey });
   const prompt = buildPrompt(context);
 
-  console.log('Sending PR context to Google Gemini for reasoning and structured review...');
+  console.log("Sending PR context to Google Gemini for reasoning and structured review...");
 
-  const primaryModel = process.env.GEMINI_MODEL || 'gemini-3.8-flash';
+  const primaryModel = process.env.GEMINI_MODEL || "gemini-3.8-flash";
   const candidateModels = Array.from(
     new Set([
       primaryModel,
-      'gemini-3.8-flash',
-      'gemini-3.1-pro-preview',
-      'gemini-3.1-pro',
-      'gemini-3-flash'
+      "gemini-3.8-flash",
+      "gemini-3.1-pro-preview",
+      "gemini-3.1-pro",
+      "gemini-3-flash"
     ])
   );
 
@@ -330,27 +439,25 @@ export async function analyzePullRequest(context, apiKey) {
       break;
     } catch (err) {
       lastErr = err;
-      console.warn(`⚠️ Model ${modelName} unavailable: ${err.message}. Trying next candidate model...`);
+      console.warn("⚠️ Model " + modelName + " unavailable: " + err.message + ". Trying next candidate model...");
     }
   }
 
   if (!response) {
-    throw new Error(`All candidate Gemini models failed. Last error: ${lastErr?.message || 'unknown'}`);
+    throw new Error("All candidate Gemini models failed. Last error: " + (lastErr?.message || "unknown"));
   }
 
-  console.log(`✅ Received analysis from model: ${usedModel}`);
+  console.log("✅ Received analysis from model: " + usedModel);
 
   const responseText = response.text;
   if (!responseText) {
-    throw new Error('Gemini returned an empty response.');
+    throw new Error("Gemini returned an empty response.");
   }
 
-  let result;
-  try {
-    result = JSON.parse(responseText);
-  } catch (err) {
-    console.error('Failed to parse Gemini JSON output:', responseText);
-    throw new Error(`Invalid JSON from Gemini: ${err.message}`);
+  let result = repairAndParseJson(responseText);
+  if (!result || !result.summary) {
+    console.error("Failed to parse Gemini JSON output:", responseText);
+    throw new Error("Invalid JSON structure returned by Gemini reasoning engine.");
   }
 
   if (result.findings) {
