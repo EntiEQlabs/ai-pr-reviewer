@@ -26,8 +26,8 @@ You must evaluate all code strictly against SonarQube Quality Gate standards, ba
    - Secure Credential Storage: Prohibit storing JWT tokens, refresh tokens, and passwords in plain \`SharedPreferences\`; require hardware-backed encrypted storage (\`flutter_secure_storage\`) (\`custom/flutter-secure-storage-for-tokens\`).
 
 3. SONARQUBE VULNERABILITIES, SECURITY & INFORMATION DISCLOSURE:
-   - Broken Object Level Authorization (BOLA / IDOR - OWASP API #1): Endpoints accessing or modifying resources by ID must verify tenant / user ownership. Flag missing authorization ownership checks (\`[CustomRule: custom/bola-idor-authorization]\`).
-   - Secret Leaks & Hardcoded Credentials: (reported in \`secret_leaks\` or found in diff): Any hardcoded API keys, private tokens, DB passwords, AWS secrets, or bearer tokens MUST be flagged as CRITICAL severity (\`[Secret Leak: Gitleaks]\` / \`sonarjs/no-hardcoded-credentials\`). Instruct developer to rotate/revoke secrets immediately. NEVER print plaintext secrets in comments.
+   - Broken Object Level Authorization (BOLA / IDOR - OWASP API #1): Endpoints accessing or modifying resources by ID must verify tenant / user ownership. Flag missing authorization ownership checks (\`custom/bola-idor-authorization\`).
+   - Secret Leaks & Hardcoded Credentials: (reported in \`secret_leaks\` or found in diff): Any hardcoded API keys, private tokens, DB passwords, AWS secrets, or bearer tokens MUST be flagged as CRITICAL severity (\`sonarjs/no-hardcoded-credentials\`). Instruct developer to rotate/revoke secrets immediately. NEVER print plaintext secrets in comments.
    - Information Exposure Through Error Messages (CWE-209 / OWASP A05:2021): Prohibit exposing raw error objects, technical exceptions, database stack traces, or internal server paths directly to end users in UI components (Flutter \`SnackBar\`, \`showDialog\`, \`showModalBottomSheet\`, \`Toast\`, React alerts/toasts) or in raw backend API 500 responses (e.g., \`e.toString()\`, \`ex.Message\`, \`DioException\`, \`FirebaseException\`, \`SqlException\`, \`StatusCode(500, ex.ToString())\`). Require mapped, user-friendly, localized error feedback (\`custom/no-raw-exception-in-ui\`, \`custom/safe-api-error-responses\`).
    - SQL Injection: Raw SQL string concatenation or unparameterized queries (\`sonarjs/sql-injection-risk\`, S2077, S3649).
    - Insecure Randomness: Using pseudorandom generators (\`Math.random()\`, \`Random()\`) for tokens, crypto, or session IDs instead of cryptographically secure RNGs (\`sonarjs/no-insecure-randomness\`, S2245).
@@ -60,16 +60,16 @@ You must evaluate all code strictly against SonarQube Quality Gate standards, ba
    - Dead Stores: Variables or parameters declared or assigned but never used (\`sonarjs/no-dead-store\`, \`sonarjs/no-unused-vars\`, S1854, S1481).
    - Cognitive Complexity: Functions exceeding cognitive complexity of 15 (\`sonarjs/cognitive-complexity\`, S3776).
    - Nested Ternaries: Unreadable nested conditional ternary operators (\`sonarjs/no-nested-conditional\`, S3358).
-   - Duplicate Strings: String literals duplicated 3+ or 4+ times (\`sonarjs/no-duplicate-string\`, S1192).
+   - Duplicate Strings: String literals duplicated 3+ times (\`sonarjs/no-duplicate-string\`, S1192).
    - Redundant Logic: Redundant jump statements (\`sonarjs/no-redundant-jump\`), collapsible ifs (\`sonarjs/no-collapsible-if\`), and gratuitous boolean expressions (\`sonarjs/no-gratuitous-expressions\`).
    - Commented-out Code: Blocks of dead commented-out code (\`sonarjs/no-commented-code\`, S125).
    - Zero Hardcoded Color Hex Codes: Prohibit raw hex codes in JSX/Flutter styles when design tokens exist (\`custom/no-hardcoded-hex-colors\`).
    - Semantic HTML & WCAG 2.1 AA: Interactive button/link semantics, missing \`aria-label\`, missing image \`alt\` descriptions.
 
 ### STRICT INSTRUCTIONS:
-- MANDATORY EXHAUSTIVE AUDIT: You must perform a complete, exhaustive line-by-line audit across EVERY single modified file. DO NOT stop after 3-5 findings or summarize issues. If there are 15 distinct issues or anti-patterns across the diff, you MUST return all 15 findings in the \`findings\` array.
-- LINE NUMBER ACCURACY: Anchor every finding strictly to one of the provided "Valid modified line numbers in new file". If an issue spans multiple lines, choose the exact changed line where the code or call is introduced.
-- Whenever static SonarQube findings (\`sonar_rules\`), secret leaks (\`secret_leaks\`), or custom rules are provided in the context, you MUST analyze, validate, and report them with the exact rule identifier (e.g., \`[SonarQube: sonarjs/no-all-duplicated-branches]\`, \`[Secret Leak: Gitleaks]\`, \`[CustomRule: custom/flutter-use-build-context-synchronously]\`, \`[CustomRule: custom/no-blocking-main-thread-initialization]\`, \`[CustomRule: custom/no-raw-exception-in-ui]\`, or \`[CustomRule: custom/no-hardcoded-hex-colors]\`).
+- MANDATORY EXHAUSTIVE AUDIT: You must perform a complete, exhaustive line-by-line audit across EVERY single modified file. DO NOT stop after 3-4 findings or summarize issues. If there are 15-20 distinct issues or anti-patterns across the diff, you MUST return all findings in the \`findings\` array.
+- RULE ID REQUIREMENT: For every finding, provide the precise \`rule_id\` matching the SonarQube rule (e.g. \`sonarjs/no-all-duplicated-branches\`), custom rule (e.g. \`custom/flutter-use-build-context-synchronously\`), or security rule (e.g. \`sonarjs/no-hardcoded-credentials\`).
+- LINE NUMBER ACCURACY: Anchor every finding strictly to one of the provided "Valid modified & diff line numbers". If an issue spans multiple lines, choose the exact line where the offending code or call occurs.
 - Be strict and uncompromising on code reliability, security, startup performance, error handling, accessibility, and design system token consistency.
 - Always provide exact file paths, valid diff line numbers, and actionable remediation code snippets.
 `;
@@ -114,6 +114,10 @@ const RESPONSE_SCHEMA = {
         properties: {
           file: { type: 'string' },
           line: { type: 'integer' },
+          rule_id: {
+            type: 'string',
+            description: 'Exact SonarQube or custom rule ID (e.g. sonarjs/no-all-duplicated-branches, custom/flutter-use-build-context-synchronously, sonarjs/no-hardcoded-credentials).'
+          },
           severity: {
             type: 'string',
             enum: ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW']
@@ -148,9 +152,6 @@ const RESPONSE_SCHEMA = {
   required: ['summary', 'findings']
 };
 
-/**
- * Priority scoring for files so security, logic, and core services are reviewed first
- */
 function getFilePriority(filePath) {
   if (/auth|security|payment|api|token|secret/i.test(filePath)) return 10;
   if (/controller|service|provider|repository|route/i.test(filePath)) return 8;
@@ -161,9 +162,6 @@ function getFilePriority(filePath) {
   return 1;
 }
 
-/**
- * Formats SonarQube profile, security, and custom rules for prompt inclusion
- */
 function formatSonarRules(sonarRulesConfig) {
   if (!sonarRulesConfig) return '';
 
@@ -199,9 +197,6 @@ function formatSonarRules(sonarRulesConfig) {
   return section;
 }
 
-/**
- * Builds the comprehensive prompt for Gemini with intelligent truncation for large PRs
- */
 function buildPrompt(context) {
   const { prMetadata, files, projectDocs, staticAnalysisReports, sonarRulesConfig } = context;
 
@@ -227,14 +222,13 @@ function buildPrompt(context) {
     prompt += `## Static Analysis Findings (Linters / SonarQube):\n\`\`\`json\n${JSON.stringify(staticAnalysisReports, null, 2)}\n\`\`\`\n\n`;
   }
 
-  // Sort files by priority
   const sortedFiles = [...files].sort((a, b) => getFilePriority(b.newPath) - getFilePriority(a.newPath));
 
   prompt += `## Changed Files and Unified Diffs (${sortedFiles.length} files total):\n`;
+  prompt += `IMPORTANT: Inspect each file diff carefully. Return ALL issues found in the findings array.\n\n`;
   
-  // Cap total prompt diff size if dealing with massive multi-file bootstrap PRs
   let currentDiffLength = 0;
-  const MAX_TOTAL_DIFF_CHARS = 180000; // ~45k tokens
+  const MAX_TOTAL_DIFF_CHARS = 200000;
 
   for (const file of sortedFiles) {
     if (currentDiffLength >= MAX_TOTAL_DIFF_CHARS) {
@@ -243,14 +237,16 @@ function buildPrompt(context) {
     }
 
     let patch = file.patch || '';
-    if (patch.length > 15000) {
-      patch = patch.slice(0, 15000) + '\n... [diff truncated for size]';
+    if (patch.length > 20000) {
+      patch = patch.slice(0, 20000) + '\n... [diff truncated for size]';
     }
 
     currentDiffLength += patch.length;
 
+    const validLines = file.hunkLines && file.hunkLines.length > 0 ? file.hunkLines : file.changedLines;
+
     prompt += `### File: ${file.newPath} (${file.isNew ? 'NEW' : file.isDeleted ? 'DELETED' : 'MODIFIED'})\n`;
-    prompt += `Valid modified line numbers in new file: [${file.changedLines.slice(0, 100).join(', ')}${file.changedLines.length > 100 ? '...' : ''}]\n`;
+    prompt += `Valid modified & diff line numbers: [${validLines.slice(0, 100).join(', ')}${validLines.length > 100 ? '...' : ''}]\n`;
     prompt += `\`\`\`diff\n${patch}\n\`\`\`\n\n`;
   }
 
@@ -261,14 +257,11 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/**
- * Call model with exponential backoff for transient 503/429/500 errors
- */
 async function callModelWithRetry(ai, modelName, prompt, maxRetries = 3) {
   let lastError;
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      console.log(`Calling model '${modelName}' (attempt ${attempt}/${maxRetries})...`);
+      console.log(`Calling model ${modelName} (attempt ${attempt}/${maxRetries})...`);
       const response = await ai.models.generateContent({
         model: modelName,
         contents: prompt,
@@ -276,7 +269,8 @@ async function callModelWithRetry(ai, modelName, prompt, maxRetries = 3) {
           systemInstruction: SYSTEM_INSTRUCTION,
           responseMimeType: 'application/json',
           responseSchema: RESPONSE_SCHEMA,
-          temperature: 0.1
+          temperature: 0.1,
+          maxOutputTokens: 8192
         }
       });
       return response;
@@ -289,11 +283,12 @@ async function callModelWithRetry(ai, modelName, prompt, maxRetries = 3) {
         status === 500 ||
         err.message?.includes('high demand') ||
         err.message?.includes('UNAVAILABLE') ||
-        err.message?.includes('RESOURCE_EXHAUSTED');
+        err.message?.includes('RESOURCE_EXHAUSTED') ||
+        err.message?.includes('rate limit');
 
       if (isTransient && attempt < maxRetries) {
         const delayMs = Math.min(attempt * 3000 + Math.random() * 1000, 15000);
-        console.warn(`⚠️ Model '${modelName}' returned status ${status || 'TRANSIENT'}. Retrying in ${Math.round(delayMs)}ms...`);
+        console.warn(`⚠️ Model ${modelName} returned status ${status || 'TRANSIENT'}. Retrying in ${Math.round(delayMs)}ms...`);
         await sleep(delayMs);
       } else {
         throw err;
@@ -303,9 +298,6 @@ async function callModelWithRetry(ai, modelName, prompt, maxRetries = 3) {
   throw lastError;
 }
 
-/**
- * Executes Gemini review analysis using structured JSON output with retries and fallbacks
- */
 export async function analyzePullRequest(context, apiKey) {
   if (!apiKey) {
     throw new Error('GEMINI_API_KEY environment variable is missing.');
@@ -316,11 +308,13 @@ export async function analyzePullRequest(context, apiKey) {
 
   console.log('Sending PR context to Google Gemini for reasoning and structured review...');
 
-  const primaryModel = process.env.GEMINI_MODEL || 'gemini-3.6-flash';
+  const primaryModel = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
   const candidateModels = Array.from(
     new Set([
       primaryModel,
+      'gemini-2.5-flash',
       'gemini-2.5-pro',
+      'gemini-2.0-flash',
       'gemini-1.5-pro',
       'gemini-1.5-flash'
     ])
@@ -337,15 +331,15 @@ export async function analyzePullRequest(context, apiKey) {
       break;
     } catch (err) {
       lastErr = err;
-      console.warn(`⚠️ Model '${modelName}' unavailable: ${err.message}. Trying next candidate model...`);
+      console.warn(`⚠️ Model ${modelName} unavailable: ${err.message}. Trying next candidate model...`);
     }
   }
 
   if (!response) {
-    throw new Error(`All candidate Gemini models failed. Last error: ${lastErr?.message}`);
+    throw new Error(`All candidate Gemini models failed. Last error: ${lastErr?.message || 'unknown'}`);
   }
 
-  console.log(`✅ Received analysis from model: '${usedModel}'`);
+  console.log(`✅ Received analysis from model: ${usedModel}`);
 
   const responseText = response.text;
   if (!responseText) {
@@ -360,7 +354,6 @@ export async function analyzePullRequest(context, apiKey) {
     throw new Error(`Invalid JSON from Gemini: ${err.message}`);
   }
 
-  // Double check counts
   if (result.findings) {
     const counts = { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0 };
     for (const f of result.findings) {
@@ -376,4 +369,3 @@ export async function analyzePullRequest(context, apiKey) {
 
   return result;
 }
-
