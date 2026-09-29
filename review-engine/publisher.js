@@ -24,19 +24,17 @@ const RISK_BADGES = {
 };
 
 /**
- * Formats an inline review comment with metadata and fingerprint tag
+ * Formats a clean, short, and easily readable inline review comment
  */
 export function formatInlineComment(finding) {
   const tag = getFingerprintTag(finding.fingerprint, finding);
   const icon = SEVERITY_ICONS[finding.severity] || finding.severity;
-  const isBusinessImpact = finding.issue_type === 'POTENTIAL_BUSINESS_IMPACT';
-  const ruleLabel = finding.rule_id ? ` | **Rule**: \`${finding.rule_id}\`` : '';
+  const ruleBadge = finding.rule_id ? ` · \`${finding.rule_id}\`` : '';
 
   let body = `${tag}\n`;
-  body += `### 🤖 AI Review: ${icon} — ${finding.title}\n\n`;
-  body += `**Category**: \`${finding.category}\`${ruleLabel} | **Type**: \`${isBusinessImpact ? 'Business Logic Impact' : 'Definite Issue'}\` | **Confidence**: \`${Math.round(finding.confidence * 100)}%\`\n\n`;
-  body += `${finding.description}\n\n`;
-  body += `#### 💡 Recommendation\n${finding.recommendation}\n`;
+  body += `### ${icon} ${finding.title}${ruleBadge}\n\n`;
+  body += `**Problem**: ${finding.description}\n\n`;
+  body += `**Suggested Fix**:\n${finding.recommendation}\n`;
 
   return body;
 }
@@ -71,9 +69,8 @@ export function formatSummaryReview({ summary, headSha, activeFindingsCount, res
       const icon = SEVERITY_ICONS[f.severity] || f.severity;
       const ruleStr = f.rule_id ? ` (\`${f.rule_id}\`)` : '';
       md += `<details>\n<summary>${icon} <b>${f.file}</b>: ${f.title}${ruleStr}</summary>\n\n`;
-      md += `**Category**: \`${f.category}\` | **Type**: \`${f.issue_type}\`\n\n`;
-      md += `${f.description}\n\n`;
-      md += `**Recommendation**:\n${f.recommendation}\n\n`;
+      md += `**Problem**: ${f.description}\n\n`;
+      md += `**Suggested Fix**:\n${f.recommendation}\n\n`;
       md += `</details>\n\n`;
     }
   }
@@ -264,13 +261,12 @@ export async function publishReview({
   const modifiedFilesSet = new Set(files.map((f) => f.newPath));
 
   for (const thread of reviewThreads) {
-    if (thread.isResolved) continue; // Already resolved
+    if (thread.isResolved) continue;
 
     const firstComment = thread.comments?.nodes?.[0];
     if (!firstComment) continue;
 
     const threadPath = thread.path || firstComment.path;
-    // Only attempt auto-resolution if the file was actually modified in this PR/push
     if (threadPath && modifiedFilesSet.has(threadPath)) {
       const isStillPresent = processedFindings.some((f) => isSameFinding(f, firstComment));
       if (!isStillPresent) {
@@ -354,7 +350,7 @@ export async function publishReview({
     console.warn('Could not update/create PR issue summary comment:', err.message);
   }
 
-  // 6. Submit GitHub PR Review (Inline comments & review state)
+  // 6. Submit GitHub PR Review
   let reviewEvent = 'COMMENT';
   if (summary.recommendation === 'REQUEST_CHANGES' && (summary.critical_count > 0 || summary.high_count > 0)) {
     reviewEvent = 'REQUEST_CHANGES';
