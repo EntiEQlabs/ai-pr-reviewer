@@ -3,7 +3,7 @@ import path from 'path';
 import { execSync } from 'child_process';
 
 /**
- * Filter out noisy files that shouldn't be sent to AI reasoning
+ * Filter out noisy files that should not be sent to AI reasoning
  */
 const IGNORED_PATTERNS = [
   /(^|\/)package-lock\.json$/,
@@ -25,7 +25,7 @@ export function isIgnoredFile(filepath) {
 }
 
 /**
- * Parses unified diff output into structured per-file diffs and tracks valid changed line numbers
+ * Parses unified diff output into structured per-file diffs and tracks valid changed & hunk line numbers
  */
 export function parseDiff(rawDiff) {
   const files = [];
@@ -45,8 +45,12 @@ export function parseDiff(rawDiff) {
     }
 
     const changedLines = new Set();
+    const hunkLines = new Set();
+    const hunkRanges = [];
     let currentNewLine = 0;
     let inHunk = false;
+    let hunkStart = 0;
+    let hunkCount = 0;
 
     for (const line of lines) {
       if (line.startsWith('@@')) {
@@ -55,15 +59,20 @@ export function parseDiff(rawDiff) {
         const hunkMatch = line.match(/@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@/);
         if (hunkMatch) {
           currentNewLine = parseInt(hunkMatch[1], 10);
+          hunkStart = currentNewLine;
+          hunkCount = hunkMatch[2] !== undefined ? parseInt(hunkMatch[2], 10) : 1;
+          hunkRanges.push({ start: hunkStart, end: hunkStart + Math.max(0, hunkCount - 1) });
         }
       } else if (inHunk) {
         if (line.startsWith('+') && !line.startsWith('+++')) {
           changedLines.add(currentNewLine);
+          hunkLines.add(currentNewLine);
           currentNewLine++;
         } else if (line.startsWith('-') && !line.startsWith('---')) {
           // Deleted line in old file, does not advance currentNewLine
         } else {
-          // Context line
+          // Context line in unified diff
+          hunkLines.add(currentNewLine);
           currentNewLine++;
         }
       }
@@ -75,6 +84,8 @@ export function parseDiff(rawDiff) {
       isDeleted: newPath === '/dev/null',
       isNew: oldPath === '/dev/null',
       changedLines: Array.from(changedLines),
+      hunkLines: Array.from(hunkLines),
+      hunkRanges,
       patch: lines.slice(1).join('\n')
     });
   }
@@ -304,7 +315,6 @@ export async function collectContext({ repoRoot, actionPath, octokit, baseRef, h
   if (fs.existsSync(securityReportPath)) {
     try {
       const rawSecurity = JSON.parse(fs.readFileSync(securityReportPath, 'utf8'));
-      // Extract concise vulnerability summary to keep context clean
       if (rawSecurity.vulnerabilities) {
         staticAnalysisReports.npm_audit = {
           metadata: rawSecurity.metadata || {},
