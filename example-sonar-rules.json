@@ -1,0 +1,154 @@
+{
+  "profile": {
+    "name": "Custom Project Clean Code, Security & Performance Profile",
+    "extends": "Sonar way",
+    "version": "3.0.0"
+  },
+  "baseRules": {
+    "sonarjs/no-all-duplicated-branches": {
+      "severity": "CRITICAL",
+      "description": "Conditional operations must not return or execute identical logic across all branches (S1871, S3923)."
+    },
+    "sonarjs/no-identical-expressions": {
+      "severity": "CRITICAL",
+      "description": "Identical expressions on both sides of a binary operator must be eliminated (S1764)."
+    },
+    "sonarjs/no-unthrown-error": {
+      "severity": "CRITICAL",
+      "description": "Error or Exception instances created must be thrown or returned, not left floating (S3984)."
+    },
+    "sonarjs/no-dead-store": {
+      "severity": "HIGH",
+      "description": "Unused assignments and dead store variables must be removed (S1854)."
+    },
+    "sonarjs/no-unused-vars": {
+      "severity": "HIGH",
+      "description": "Variables, parameters, or imports declared but never used must be removed (S1481)."
+    },
+    "sonarjs/cognitive-complexity": {
+      "severity": "HIGH",
+      "maxThreshold": 15,
+      "description": "Function cognitive complexity must remain <= 15 (S3776)."
+    },
+    "sonarjs/no-nested-conditional": {
+      "severity": "MEDIUM",
+      "description": "Nested ternary operators are prohibited (S3358)."
+    },
+    "sonarjs/no-duplicate-string": {
+      "severity": "MEDIUM",
+      "threshold": 3,
+      "description": "Strings duplicated 3+ times must be extracted into dedicated constants (S1192)."
+    }
+  },
+  "securityRules": {
+    "sonarjs/no-hardcoded-credentials": {
+      "severity": "CRITICAL",
+      "description": "Hardcoded passwords, API keys, tokens, and secrets are strictly forbidden (S2068 / OWASP A07)."
+    },
+    "sonarjs/sql-injection-risk": {
+      "severity": "CRITICAL",
+      "description": "Raw SQL string concatenation is strictly prohibited (S2077 / OWASP A03)."
+    },
+    "sonarjs/no-insecure-randomness": {
+      "severity": "HIGH",
+      "description": "Insecure random generators must not be used for tokens/crypto (S2245 / OWASP A02)."
+    },
+    "sonarjs/path-traversal-prevention": {
+      "severity": "CRITICAL",
+      "description": "Unsanitized user inputs in file paths must be prevented (CWE-22 / OWASP A01)."
+    }
+  },
+  "customRules": [
+    {
+      "id": "custom/flutter-use-build-context-synchronously",
+      "name": "No BuildContext Across Async Gaps Without Mounted Guard",
+      "severity": "CRITICAL",
+      "description": "In Flutter, using BuildContext across async gaps without `if (!context.mounted) return;` causes crashes when navigating away.",
+      "tags": ["flutter", "reliability", "crash-prevention"]
+    },
+    {
+      "id": "custom/no-blocking-main-thread-initialization",
+      "name": "No Blocking Main Thread / Startup Lifecycle Over-Initialization",
+      "severity": "HIGH",
+      "description": "Prohibit heavy, sequential, or blocking initializations in app entry points (`main.dart`, `Program.cs`, `App.tsx`) before the first frame renders.",
+      "tags": ["performance", "flutter", "startup"]
+    },
+    {
+      "id": "custom/flutter-isolate-heavy-computations",
+      "name": "Offload Heavy Computations from Flutter Main Isolate",
+      "severity": "HIGH",
+      "description": "In Flutter/Dart, CPU-intensive parsing or crypto must use `compute()` or `Isolate.run()` to prevent UI jank.",
+      "tags": ["performance", "flutter", "isolate"]
+    },
+    {
+      "id": "custom/flutter-dispose-controllers",
+      "name": "Mandatory Disposal of Flutter Controllers & Subscriptions",
+      "severity": "HIGH",
+      "description": "All `AnimationController`, `TextEditingController`, `ScrollController`, and `StreamSubscription` instances must be cleanly disposed in `dispose()`.",
+      "tags": ["flutter", "memory-leak"]
+    },
+    {
+      "id": "custom/flutter-secure-storage-for-tokens",
+      "name": "Secure Storage for Auth Tokens & Credentials",
+      "severity": "CRITICAL",
+      "description": "In Flutter/Mobile, tokens must be stored in encrypted secure storage (`flutter_secure_storage`), not plain `SharedPreferences`.",
+      "tags": ["flutter", "security", "mobile"]
+    },
+    {
+      "id": "custom/no-raw-exception-in-ui",
+      "name": "No Raw Exceptions In User Feedback (CWE-209 / OWASP)",
+      "severity": "HIGH",
+      "description": "Never expose raw error objects or stack traces directly in SnackBars, Dialogs, Alerts, or Toasts.",
+      "tags": ["security", "owasp", "ux", "error-handling"]
+    },
+    {
+      "id": "custom/proper-error-handling",
+      "name": "Proper Error Catching & Logging",
+      "severity": "HIGH",
+      "description": "Catch blocks must not be empty or silently swallow exceptions.",
+      "tags": ["reliability", "error-handling"]
+    },
+    {
+      "id": "custom/dotnet-no-sync-over-async",
+      "name": "Avoid Sync-Over-Async Blocking (.Result / .Wait())",
+      "severity": "CRITICAL",
+      "description": "In .NET / C#, calling `.Result` or `.Wait()` on Tasks is prohibited to prevent thread starvation and deadlocks.",
+      "tags": ["dotnet", "async", "performance"]
+    },
+    {
+      "id": "custom/react-hook-exhaustive-deps",
+      "name": "Exhaustive Dependencies in React Hooks",
+      "severity": "HIGH",
+      "description": "All reactive values referenced inside `useEffect`, `useCallback`, or `useMemo` must be in the dependency array.",
+      "tags": ["react", "correctness"]
+    },
+    {
+      "id": "custom/react-no-array-index-as-key",
+      "name": "No Array Index as React Key in Dynamic Lists",
+      "severity": "HIGH",
+      "description": "Using array indices as keys in dynamic list rendering is prohibited. Use unique entity IDs.",
+      "tags": ["react", "correctness"]
+    },
+    {
+      "id": "custom/no-hardcoded-hex-colors",
+      "name": "Zero Hardcoded Color Hex Values",
+      "severity": "HIGH",
+      "description": "Hardcoded hex colors are prohibited. Must use centralized theme tokens or design system constants.",
+      "tags": ["design-system", "maintainability"]
+    },
+    {
+      "id": "custom/mandatory-image-alt",
+      "name": "Mandatory Image Alt Descriptions",
+      "severity": "HIGH",
+      "description": "All image components must provide a descriptive alt attribute (WCAG 2.1 AA).",
+      "tags": ["accessibility", "wcag"]
+    },
+    {
+      "id": "custom/secure-external-links",
+      "name": "Secure External Links",
+      "severity": "CRITICAL",
+      "description": "All external links with target='_blank' must include rel='noopener noreferrer'.",
+      "tags": ["security", "owasp"]
+    }
+  ]
+}

@@ -1,0 +1,92 @@
+name: 'AI PR Reviewer with SonarQube Standards'
+description: 'Automated AI Pull Request reviewer powered by Google Gemini and SonarQube clean code rules'
+author: 'Wiates Tech'
+branding:
+  icon: 'check-circle'
+  color: 'blue'
+
+inputs:
+  gemini-api-key:
+    description: 'Google Gemini API Key'
+    required: true
+  github-token:
+    description: 'GitHub token for posting PR reviews (defaults to github.token)'
+    required: false
+    default: ${{ github.token }}
+  gemini-model:
+    description: 'Gemini model to use'
+    required: false
+    default: 'gemini-3.6-flash'
+  max-allowed-files:
+    description: 'Maximum number of changed files allowed before requesting changes directly'
+    required: false
+    default: '60'
+  sonar-rules-path:
+    description: 'Path to custom sonar-rules.json configuration file (optional)'
+    required: false
+    default: 'sonar-rules.json'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Set up Node.js for Review Engine
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20
+
+    - name: Run Free Secret Scanning (Gitleaks)
+      shell: bash
+      run: |
+        echo "🔍 Running Free Gitleaks Secret Scanner..."
+        if ! command -v gitleaks &> /dev/null; then
+          curl -sSL https://github.com/gitleaks/gitleaks/releases/download/v8.18.2/gitleaks_8.18.2_linux_x64.tar.gz | tar -xz -C /tmp/ gitleaks || true
+        fi
+        if [ -f "/tmp/gitleaks" ]; then
+          /tmp/gitleaks detect --no-git --report-format=json --report-path=gitleaks-report.json --exit-code=0 || true
+        fi
+      continue-on-error: true
+
+    - name: Run Deterministic Linters & Scanners (Polyglot)
+      shell: bash
+      run: |
+        # JavaScript / TypeScript (Node.js)
+        if [ -f "package.json" ] && grep -q '"lint"' package.json; then
+          npm run lint -- --format json -o eslint-report.json || true
+        fi
+        if [ -f "package.json" ]; then
+          npm audit --json > security-report.json || true
+        fi
+        # Flutter / Dart
+        if [ -f "pubspec.yaml" ] && command -v flutter >/dev/null 2>&1; then
+          flutter analyze --write=flutter-report.txt || true
+        fi
+        # Python
+        if [ -f "requirements.txt" ] || [ -f "pyproject.toml" ]; then
+          command -v ruff >/dev/null 2>&1 && ruff check --output-format=json -o ruff-report.json || true
+        fi
+      continue-on-error: true
+
+    - name: Install Review Engine Dependencies
+      shell: bash
+      run: |
+        ENGINE_DIR="${{ github.action_path }}/review-engine"
+        if [ ! -d "$ENGINE_DIR" ]; then
+          ENGINE_DIR="${{ github.action_path }}/../../scripts/review-engine"
+        fi
+        npm install --prefix "$ENGINE_DIR"
+
+    - name: Run AI Code Review
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+        GEMINI_API_KEY: ${{ inputs.gemini-api-key }}
+        GEMINI_MODEL: ${{ inputs.gemini-model }}
+        MAX_ALLOWED_FILES: ${{ inputs.max-allowed-files }}
+        SONAR_RULES_PATH: ${{ inputs.sonar-rules-path }}
+        ACTION_PATH: ${{ github.action_path }}
+      run: |
+        ENGINE_DIR="${{ github.action_path }}/review-engine"
+        if [ ! -d "$ENGINE_DIR" ]; then
+          ENGINE_DIR="${{ github.action_path }}/../../scripts/review-engine"
+        fi
+        node "$ENGINE_DIR/index.js"

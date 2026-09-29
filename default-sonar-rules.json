@@ -1,0 +1,299 @@
+{
+  "profile": {
+    "name": "Enterprise Complete Clean Code, Security & Performance Profile",
+    "extends": "Sonar way",
+    "version": "3.0.0"
+  },
+  "baseRules": {
+    "sonarjs/no-all-duplicated-branches": {
+      "severity": "CRITICAL",
+      "description": "Conditional operations must not return or execute identical logic across all branches (S1871, S3923)."
+    },
+    "sonarjs/no-identical-expressions": {
+      "severity": "CRITICAL",
+      "description": "Identical expressions on both sides of a binary operator (e.g. `a === a`, `x && x`) must be eliminated (S1764)."
+    },
+    "sonarjs/no-identical-conditions": {
+      "severity": "CRITICAL",
+      "description": "Identical conditions in if/else-if chains or switch cases must be eliminated (S1862)."
+    },
+    "sonarjs/no-unthrown-error": {
+      "severity": "CRITICAL",
+      "description": "Error or Exception instances created must be thrown or returned, not left floating (S3984)."
+    },
+    "sonarjs/no-dead-store": {
+      "severity": "HIGH",
+      "description": "Unused assignments and dead store variables must be removed (S1854)."
+    },
+    "sonarjs/no-unused-vars": {
+      "severity": "HIGH",
+      "description": "Variables, parameters, or imports declared but never used must be removed (S1481)."
+    },
+    "sonarjs/no-ignored-return": {
+      "severity": "HIGH",
+      "description": "Return values of pure, immutable, or state-returning methods must not be ignored (S2201)."
+    },
+    "sonarjs/cognitive-complexity": {
+      "severity": "HIGH",
+      "maxThreshold": 15,
+      "description": "Function cognitive complexity must remain <= 15. Break complex methods into modular units (S3776)."
+    },
+    "sonarjs/no-redundant-jump": {
+      "severity": "HIGH",
+      "description": "Redundant return, continue, break, or jump statements must be eliminated (S3626)."
+    },
+    "sonarjs/no-nested-conditional": {
+      "severity": "MEDIUM",
+      "description": "Nested ternary operators are prohibited. Refactor into explicit if-else or early returns (S3358)."
+    },
+    "sonarjs/no-duplicate-string": {
+      "severity": "MEDIUM",
+      "threshold": 3,
+      "description": "Strings duplicated 3+ times must be extracted into dedicated constants (S1192)."
+    },
+    "sonarjs/no-useless-catch": {
+      "severity": "MEDIUM",
+      "description": "Catch blocks that only rethrow the caught exception without handling or logging must be removed (S2737)."
+    },
+    "sonarjs/no-gratuitous-expressions": {
+      "severity": "MEDIUM",
+      "description": "Boolean expressions that evaluate to constant true or false must be cleaned up (S2589)."
+    },
+    "sonarjs/no-commented-code": {
+      "severity": "MEDIUM",
+      "description": "Commented-out code blocks must be removed to preserve clean codebases (S125)."
+    },
+    "sonarjs/no-redundant-boolean": {
+      "severity": "LOW",
+      "description": "Redundant boolean literals in expressions (e.g. `if (x === true)` or `return x ? true : false`) must be simplified (S1125)."
+    },
+    "sonarjs/no-collapsible-if": {
+      "severity": "LOW",
+      "description": "Nested `if` statements without else branches should be merged into a single conditional (S1066)."
+    },
+    "sonarjs/no-inverted-boolean-check": {
+      "severity": "LOW",
+      "description": "Inverted boolean conditions (e.g. `!(a === b)`) should be written in natural form (`a !== b`) (S1940)."
+    },
+    "sonarjs/prefer-immediate-return": {
+      "severity": "LOW",
+      "description": "Intermediate local variables declared solely to be returned on the next line should be returned immediately (S1488)."
+    },
+    "sonarjs/non-existent-operator": {
+      "severity": "CRITICAL",
+      "description": "Typos in assignment operators like `=-` or `=+` instead of `-=` or `+=` must be fixed (S2757)."
+    },
+    "sonarjs/no-useless-increment": {
+      "severity": "HIGH",
+      "description": "Post-increment/decrement operators used in return statements (e.g. `return count++;`) that have no effect must be fixed (S2123)."
+    }
+  },
+  "securityRules": {
+    "sonarjs/no-hardcoded-credentials": {
+      "severity": "CRITICAL",
+      "description": "Hardcoded passwords, API keys, private tokens, DB connection strings, and secrets are strictly forbidden (S2068 / OWASP A07)."
+    },
+    "sonarjs/sql-injection-risk": {
+      "severity": "CRITICAL",
+      "description": "Raw SQL string concatenation or unparameterized queries are strictly prohibited (S2077, S3649 / OWASP A03)."
+    },
+    "sonarjs/no-insecure-randomness": {
+      "severity": "HIGH",
+      "description": "Pseudorandom number generators (e.g. `Math.random()`, `Random()`) must not be used for security-sensitive tokens, passwords, cryptography, or session identifiers. Use cryptographically secure alternatives (`crypto.getRandomValues()`, `Random.secure()`, `RandomNumberGenerator`) (S2245 / OWASP A02)."
+    },
+    "sonarjs/no-eval-or-unsafe-code-execution": {
+      "severity": "CRITICAL",
+      "description": "Execution of dynamic code using `eval()`, `new Function()`, or dynamic string timers is strictly prohibited (S1523 / OWASP A03)."
+    },
+    "sonarjs/no-unsafe-regex": {
+      "severity": "HIGH",
+      "description": "Regular expressions vulnerable to polynomial or exponential backtracking (ReDoS) must be refactored (S5852 / CWE-1333)."
+    },
+    "sonarjs/path-traversal-prevention": {
+      "severity": "CRITICAL",
+      "description": "Unsanitized user inputs used directly in filesystem path construction (`path.join()`, `File()`) without canonicalization or bounds checking must be blocked (CWE-22 / OWASP A01)."
+    },
+    "sonarjs/secure-ssrf-prevention": {
+      "severity": "HIGH",
+      "description": "Outbound HTTP requests constructed with unvalidated user-supplied URLs must validate against an allowed domain whitelist to prevent Server-Side Request Forgery (CWE-918 / OWASP A10)."
+    },
+    "sonarjs/secure-cors-policy": {
+      "severity": "HIGH",
+      "description": "Wildcard CORS headers (`Access-Control-Allow-Origin: *`) must never be paired with credential sharing (`AllowCredentials: true`) (S5122)."
+    },
+    "sonarjs/secure-cookie-config": {
+      "severity": "HIGH",
+      "description": "Sensitive session cookies must have `HttpOnly`, `Secure`, and appropriate `SameSite` flags enabled (S3330, S2092)."
+    }
+  },
+  "customRules": [
+    {
+      "id": "custom/flutter-use-build-context-synchronously",
+      "name": "No BuildContext Across Async Gaps Without Mounted Guard",
+      "severity": "CRITICAL",
+      "description": "In Flutter/Dart, using `BuildContext` across asynchronous gaps (after `await`) without verifying `if (!context.mounted) return;` or `if (!mounted) return;` is prohibited. Unmounted context access causes runtime crashes when the user navigates away before async completion.",
+      "tags": ["flutter", "dart", "reliability", "crash-prevention"]
+    },
+    {
+      "id": "custom/no-blocking-main-thread-initialization",
+      "name": "No Blocking Main Thread / Startup Lifecycle Over-Initialization",
+      "severity": "HIGH",
+      "description": "Prohibit heavy, sequential, or blocking synchronous/asynchronous initializations in app entry points (`main.dart` in Flutter, `Program.cs` in .NET, `index.ts`/`App.tsx` in React/Next.js) before the initial UI frame renders (`runApp()` or initial paint). Non-essential SDKs (Analytics, Ads, Sentry, Crashlytics), heavy file I/O, and blocking network calls MUST be deferred after the first frame (`addPostFrameCallback`) or offloaded to background tasks.",
+      "tags": ["performance", "flutter", "startup", "architecture"]
+    },
+    {
+      "id": "custom/flutter-isolate-heavy-computations",
+      "name": "Offload Heavy Computations from Flutter Main Isolate",
+      "severity": "HIGH",
+      "description": "In Flutter/Dart, CPU-intensive data parsing, large JSON decodes, image processing, or cryptography must NOT run directly on the main UI isolate. Must use `compute()` or `Isolate.run()` to prevent UI jank, frame drops, and thread starvation.",
+      "tags": ["performance", "flutter", "isolate", "concurrency"]
+    },
+    {
+      "id": "custom/flutter-const-widgets",
+      "name": "Prefer Const Constructors on Immutable Widgets",
+      "severity": "MEDIUM",
+      "description": "In Flutter, static/immutable widget subtrees and leaf widgets must use `const` constructors to enable compile-time canonicalization and prevent redundant widget rebuilds during UI animations.",
+      "tags": ["flutter", "performance", "clean-code"]
+    },
+    {
+      "id": "custom/flutter-dispose-controllers",
+      "name": "Mandatory Disposal of Flutter Controllers & Subscriptions",
+      "severity": "HIGH",
+      "description": "All `AnimationController`, `TextEditingController`, `ScrollController`, `PageController`, `FocusNode`, and `StreamSubscription` instances must be cleanly disposed/cancelled in `dispose()` or state destruction methods to prevent memory leaks.",
+      "tags": ["flutter", "memory-leak", "clean-code"]
+    },
+    {
+      "id": "custom/flutter-secure-storage-for-tokens",
+      "name": "Secure Storage for Auth Tokens & Credentials",
+      "severity": "CRITICAL",
+      "description": "In Flutter/Mobile, authentication tokens, refresh tokens, passwords, and sensitive keys must NOT be stored in plain `SharedPreferences` or `UserDefaults`. Must use hardware-backed encrypted storage (`flutter_secure_storage`, Keystore, Keychain).",
+      "tags": ["flutter", "security", "owasp", "mobile"]
+    },
+    {
+      "id": "custom/no-raw-exception-in-ui",
+      "name": "No Raw Exceptions In User Feedback (CWE-209 / OWASP)",
+      "severity": "HIGH",
+      "description": "Never expose raw error objects, technical exceptions, or stack traces directly to end users (e.g. `e.toString()`, `ex.Message`, `DioException`, `FirebaseException`, `SqlException`) in SnackBars, Toasts, Dialogs, Alerts, or Banners. All user feedback must present sanitized, user-friendly, actionable messages.",
+      "tags": ["security", "owasp", "ux", "error-handling"]
+    },
+    {
+      "id": "custom/proper-error-handling",
+      "name": "Proper Error Catching & Logging",
+      "severity": "HIGH",
+      "description": "Catch blocks must not be empty or silently swallow exceptions. Caught errors must be logged to a logger/telemetry system and converted to controlled failure/fallback states.",
+      "tags": ["reliability", "error-handling", "clean-code"]
+    },
+    {
+      "id": "custom/safe-api-error-responses",
+      "name": "Safe Backend API Error Responses",
+      "severity": "CRITICAL",
+      "description": "Backend API endpoints / controllers must never return raw database exceptions, internal stack traces, or uncaught server errors (e.g. `StatusCode(500, ex.ToString())`) to HTTP clients. Responses must use standardized, sanitized error payloads (e.g. RFC 7807 Problem Details).",
+      "tags": ["security", "backend", "api", "owasp"]
+    },
+    {
+      "id": "custom/dotnet-cancellation-token-propagation",
+      "name": "Propagate CancellationToken in Async Backend Operations",
+      "severity": "MEDIUM",
+      "description": "In .NET / C# backend controllers and services, asynchronous I/O methods (Entity Framework queries, HTTP client requests, file I/O) should accept and propagate `CancellationToken` from controller actions to abort wasted server compute when HTTP clients disconnect.",
+      "tags": ["dotnet", "backend", "performance", "scalability"]
+    },
+    {
+      "id": "custom/dotnet-no-sync-over-async",
+      "name": "Avoid Sync-Over-Async Blocking (.Result / .Wait())",
+      "severity": "CRITICAL",
+      "description": "In .NET / C#, calling `.Result`, `.Wait()`, or `.GetAwaiter().GetResult()` on asynchronous Tasks is prohibited. Sync-over-async causes thread pool starvation, high latency, and deadlocks. Always use `await` asynchronously.",
+      "tags": ["dotnet", "async", "concurrency", "performance"]
+    },
+    {
+      "id": "custom/dotnet-idisposable-using",
+      "name": "Mandatory Using Declarations on Disposable Resources",
+      "severity": "HIGH",
+      "description": "In .NET / C#, all types implementing `IDisposable` or `IAsyncDisposable` (e.g. DB connections, streams, HTTP responses) must be instantiated with `using var` or `await using` to prevent unmanaged resource leaks (S2930, S3971).",
+      "tags": ["dotnet", "memory-leak", "clean-code"]
+    },
+    {
+      "id": "custom/react-hook-exhaustive-deps",
+      "name": "Exhaustive Dependencies in React Hooks",
+      "severity": "HIGH",
+      "description": "In React / Next.js, all reactive values (state, props) referenced inside `useEffect`, `useCallback`, or `useMemo` must be included in the dependency array to avoid stale closures or inconsistent state updates.",
+      "tags": ["react", "correctness", "clean-code"]
+    },
+    {
+      "id": "custom/react-no-array-index-as-key",
+      "name": "No Array Index as React Key in Dynamic Lists",
+      "severity": "HIGH",
+      "description": "Using array indices as keys (e.g. `key={index}`) in dynamic list rendering is prohibited when items can be reordered, filtered, added, or removed. Must use unique entity identifiers to prevent DOM reconciliation bugs and input state corruptions.",
+      "tags": ["react", "correctness", "performance"]
+    },
+    {
+      "id": "custom/react-cleanup-effect",
+      "name": "React useEffect Cleanup Required",
+      "severity": "HIGH",
+      "description": "Effects subscribing to events, intervals, WebSocket connections, or animations must return a cleanup function to prevent memory leaks and orphaned listeners.",
+      "tags": ["react", "memory-leak"]
+    },
+    {
+      "id": "custom/no-hardcoded-hex-colors",
+      "name": "Zero Hardcoded Color Hex Values",
+      "severity": "HIGH",
+      "description": "Hardcoded hex values (e.g. #067647, bg-[#...], style={{ color: '...' }}) are prohibited. Must use centralized design tokens or semantic theme classes.",
+      "tags": ["design-system", "maintainability"]
+    },
+    {
+      "id": "custom/mandatory-image-alt",
+      "name": "Mandatory Image Alt Descriptions",
+      "severity": "HIGH",
+      "description": "All <img> and <Image /> components must provide a descriptive alt attribute (WCAG 2.1 AA).",
+      "tags": ["accessibility", "wcag"]
+    },
+    {
+      "id": "custom/secure-external-links",
+      "name": "Secure External Links",
+      "severity": "CRITICAL",
+      "description": "All external links with target='_blank' must include rel='noopener noreferrer' to prevent reverse tabnabbing.",
+      "tags": ["security", "owasp"]
+    },
+    {
+      "id": "custom/semantic-interactive-elements",
+      "name": "Semantic Interactive Elements",
+      "severity": "MEDIUM",
+      "description": "Interactive elements must use semantic <button> or <Link> tags with keyboard accessibility and aria-label where icons lack text.",
+      "tags": ["accessibility", "html5"]
+    },
+    {
+      "id": "custom/bola-idor-authorization",
+      "name": "Broken Object Level Authorization Guard (OWASP API #1)",
+      "severity": "CRITICAL",
+      "description": "API endpoints accessing or mutating resources by ID must verify that the authenticated user owns or has permission to access that specific entity ID (IDOR / BOLA prevention). Prohibit direct entity retrieval by route ID without tenant/ownership checks.",
+      "tags": ["security", "owasp", "api", "authorization"]
+    },
+    {
+      "id": "custom/no-n-plus-one-queries",
+      "name": "Prevent N+1 Database Queries in ORMs",
+      "severity": "HIGH",
+      "description": "Prohibit executing individual database queries or lazy-loaded relation calls inside loops (EF Core, Prisma, TypeORM, Hibernate, SQL). Must use eager loading (`.Include()`, `join`, `in` batch querying) or aggregated projections to prevent database connection exhaustion.",
+      "tags": ["performance", "database", "orm", "backend"]
+    },
+    {
+      "id": "custom/immutable-state-updates",
+      "name": "Immutable State Updates (No Direct State Mutation)",
+      "severity": "HIGH",
+      "description": "Prohibit direct in-place mutation of state objects or collections (e.g. `state.items.push()` in React/Redux, or mutating properties on Bloc/Riverpod state instances in Flutter). State updates must always emit new immutable state instances via `copyWith()` or spread operators to guarantee predictable UI re-rendering.",
+      "tags": ["architecture", "flutter", "react", "state-management"]
+    },
+    {
+      "id": "custom/unbounded-database-queries",
+      "name": "Enforce Pagination on Database & API Queries",
+      "severity": "HIGH",
+      "description": "Prohibit querying database tables or returning API collections without strict pagination limits (e.g. missing `.Take(n)`, `limit: n`, or unbounded `SELECT *`). Queries returning unbounded result sets cause Out-Of-Memory (OOM) crashes and server Denial-of-Service under production scale.",
+      "tags": ["database", "scalability", "dos-prevention", "performance"]
+    },
+    {
+      "id": "custom/async-race-condition-guard",
+      "name": "Async Race Condition & Debounce Protection",
+      "severity": "MEDIUM",
+      "description": "Form submissions, purchase actions, and search input listeners must implement loading flags, debouncing, or cancellation tokens to prevent double-submit race conditions and out-of-order asynchronous responses.",
+      "tags": ["ux", "correctness", "frontend", "concurrency"]
+    }
+  ]
+}

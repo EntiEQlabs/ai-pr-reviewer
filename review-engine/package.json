@@ -1,0 +1,14 @@
+{
+  "name": "ai-review-engine",
+  "version": "1.0.0",
+  "description": "Automated GitHub AI PR Review Engine powered by SonarQube and Google Gemini",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@google/genai": "^2.22.0",
+    "@octokit/rest": "^21.1.1"
+  }
+}
