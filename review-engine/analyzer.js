@@ -67,6 +67,8 @@ You must evaluate all code strictly against SonarQube Quality Gate standards, ba
    - Semantic HTML & WCAG 2.1 AA: Interactive button/link semantics, missing \`aria-label\`, missing image \`alt\` descriptions.
 
 ### STRICT INSTRUCTIONS:
+- MANDATORY EXHAUSTIVE AUDIT: You must perform a complete, exhaustive line-by-line audit across EVERY single modified file. DO NOT stop after 3-5 findings or summarize issues. If there are 15 distinct issues or anti-patterns across the diff, you MUST return all 15 findings in the \`findings\` array.
+- LINE NUMBER ACCURACY: Anchor every finding strictly to one of the provided "Valid modified line numbers in new file". If an issue spans multiple lines, choose the exact changed line where the code or call is introduced.
 - Whenever static SonarQube findings (\`sonar_rules\`), secret leaks (\`secret_leaks\`), or custom rules are provided in the context, you MUST analyze, validate, and report them with the exact rule identifier (e.g., \`[SonarQube: sonarjs/no-all-duplicated-branches]\`, \`[Secret Leak: Gitleaks]\`, \`[CustomRule: custom/flutter-use-build-context-synchronously]\`, \`[CustomRule: custom/no-blocking-main-thread-initialization]\`, \`[CustomRule: custom/no-raw-exception-in-ui]\`, or \`[CustomRule: custom/no-hardcoded-hex-colors]\`).
 - Be strict and uncompromising on code reliability, security, startup performance, error handling, accessibility, and design system token consistency.
 - Always provide exact file paths, valid diff line numbers, and actionable remediation code snippets.
@@ -274,7 +276,7 @@ async function callModelWithRetry(ai, modelName, prompt, maxRetries = 3) {
           systemInstruction: SYSTEM_INSTRUCTION,
           responseMimeType: 'application/json',
           responseSchema: RESPONSE_SCHEMA,
-          temperature: 0.2
+          temperature: 0.1
         }
       });
       return response;
